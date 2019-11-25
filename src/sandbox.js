@@ -1,6 +1,6 @@
 import { updateDisplay, displayLog } from './utils';
-import { fromEvent } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { fromEvent, zip, merge } from 'rxjs';
+import { tap, map, scan, filter, distinctUntilChanged } from 'rxjs/operators';
 
 export default () => {
     /** start coding */
@@ -22,7 +22,7 @@ export default () => {
     }
 
     /** helper method to retrieve local coords from click */
-    const getLocalClickCoords = (event, parent) =>{
+    const getLocalClickCoords = (event, parent) => {
         return {
             x: event.clientX - parent.offsetLeft,
             y: event.clientY - parent.offsetTop,
@@ -54,12 +54,58 @@ export default () => {
                 label: 'drawing',
                 coords: getLocalClickCoords(event, canvas)
             }
-        }));        
+        }));
 
 
     //TODO: draw current line
+    /*****Ejemplo con zip
+    const drawLine$ = zip(mouseStart$, mouseEnd$).pipe(
+        tap(console.log),
+        map(([init, end]) => {
+            return [
+                init.coords,
+                end.coords
+            ]
+        })
+    );
+    drawLine$.subscribe(event => drawLine(...event)); */
+    const drawLine$ = merge(mouseStart$, mouseMove$, mouseEnd$).pipe(
+        scan((preveState, currentState) => {
+            switch (preveState.label) {
+                case 'init':
+                case 'end':
+                    if (currentState.label == 'start') {
+                        return {
+                            origin: currentState.coords,
+                            ...currentState
+                        }
+                    }
+                    break;
+                case 'start':
+                case 'drawing':
+                    return {
+                        origin: preveState.origin,
+                        ...currentState
+                    }
+            }
+            return preveState;
+            /*return {
+                origin:
+            }*/
+        }, { label: 'init' }),
+        tap(console.log),
+        filter(val => val.origin),
+        distinctUntilChanged()
+        /*map(([init, end]) => {
+            return [
+                init.coords,
+                end.coords
+            ]
+        })*/
+    );
+    drawLine$.subscribe(event => drawLine(event.origin, event.coords));
+    //drawLine$.subscribe();
 
-    
 
     /** end coding */
 }
