@@ -1,13 +1,13 @@
 import { updateDisplay } from './utils';
 import { fromEvent, interval, merge, EMPTY } from 'rxjs';
-import { mapTo, scan, takeWhile, switchMap, startWith  } from 'rxjs/operators';
+import { mapTo, scan, takeWhile, switchMap, startWith, materialize, dematerialize } from 'rxjs/operators';
 
 export default () => {
     /** start coding */
 
     /** number of seconds to init countdown */
     const countdownSeconds = 10;
-    
+
     /** access interface buttons */
     const pauseButton = document.getElementById('pause-btn');
     const resumeButton = document.getElementById('resume-btn');
@@ -23,14 +23,15 @@ export default () => {
     /** countdown timer */
     const countdown$ = isPaused$.pipe(
         startWith(false),
-        switchMap(paused => !paused ? interval$ : EMPTY),
-        scan((acc, curr) => ( curr ? curr + acc : curr ), countdownSeconds),
+        switchMap(paused => !paused ? interval$.pipe(materialize()) : EMPTY.pipe(materialize())),
+        dematerialize(),
+        scan((acc, curr) => (curr ? curr + acc : curr), countdownSeconds),
         takeWhile(v => v >= 0)
     );
 
     /** subscribe to countdown */
-    countdown$.subscribe(updateDisplay);
+    countdown$.subscribe(updateDisplay, null, () => console.log('Completado'));
 
-    
+
     /** end coding */
 }
